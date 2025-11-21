@@ -319,7 +319,7 @@ def generate_demo_data() -> List[Dict]:
     return demo_fda + demo_trials
 
 # Data Fetching Functions
-def fetch_fda_data(search_term: str, days_back: int = 365) -> List[Dict]:
+def fetch_fda_data(search_term: str, days_back: int = 365, api_key: str = None) -> List[Dict]:
     """Fetch FDA 510(k) data"""
     try:
         date_from = (datetime.now() - timedelta(days=days_back)).strftime('%Y%m%d')
@@ -339,6 +339,10 @@ def fetch_fda_data(search_term: str, days_back: int = 365) -> List[Dict]:
             'search': search_query,
             'limit': 50  # Reduced to ensure we get results
         }
+        
+        # Add API key if provided (increases rate limit from 240/day to 120,000/day)
+        if api_key:
+            params['api_key'] = api_key
         
         response = requests.get(url, params=params, timeout=15)
         
@@ -364,7 +368,7 @@ def fetch_fda_data(search_term: str, days_back: int = 365) -> List[Dict]:
             
             return results
         else:
-            st.warning(f"FDA API returned status {response.status_code}. Using clinical trials data only.")
+            st.warning(f"FDA API returned status {response.status_code}. Using clinical trials data only. Consider adding an FDA API key for better reliability.")
             return []
     except Exception as e:
         st.warning(f"FDA API temporarily unavailable: {str(e)}. Continuing with clinical trials data.")
@@ -487,6 +491,22 @@ def main():
     with st.sidebar:
         st.header("⚙️ Analysis Configuration")
         
+        # Optional API Key for better rate limits
+        with st.expander("🔑 API Configuration (Optional)", expanded=False):
+            # Try to get API key from secrets first, then allow manual input
+            default_api_key = st.secrets.get("FDA_API_KEY", "") if hasattr(st, 'secrets') else ""
+            
+            fda_api_key = st.text_input(
+                "FDA API Key",
+                value=default_api_key,
+                type="password",
+                help="Get free API key at open.fda.gov to avoid rate limits (120k requests/day vs 240/day)"
+            )
+            if fda_api_key:
+                st.success("✓ FDA API key configured")
+            else:
+                st.info("💡 Add FDA API key for higher rate limits")
+        
         search_term = st.text_input(
             "Search Term (Optional)",
             placeholder="e.g., ophthalmology, diabetes",
@@ -536,7 +556,7 @@ def main():
                 # Fetch data from APIs
                 search_query = search_term if therapeutic_area == "All Categories" else therapeutic_area.lower()
                 
-                fda_data = fetch_fda_data(search_query, days_back)
+                fda_data = fetch_fda_data(search_query, days_back, fda_api_key if fda_api_key else None)
                 clinical_data = fetch_clinical_trials(search_query, days_back)
                 
                 all_records = fda_data + clinical_data
