@@ -4,8 +4,14 @@ import pandas as pd
 from datetime import datetime, timedelta
 import json
 from typing import List, Dict
-import plotly.graph_objects as go
-import plotly.express as px
+
+# Plotly imports
+try:
+    import plotly.graph_objects as go
+    import plotly.express as px
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
 
 # Page Configuration
 st.set_page_config(
@@ -449,19 +455,33 @@ def main():
         
         # Threat Distribution Chart
         st.subheader("Threat Distribution")
-        fig = go.Figure(data=[go.Pie(
-            labels=['Critical', 'High', 'Medium', 'Low'],
-            values=[
-                summary['threatOverview']['CRITICAL'],
-                summary['threatOverview']['HIGH'],
-                summary['threatOverview']['MEDIUM'],
-                summary['threatOverview']['LOW']
-            ],
-            marker=dict(colors=['#dc2626', '#f59e0b', '#fbbf24', '#10b981']),
-            hole=0.4
-        )])
-        fig.update_layout(height=400)
-        st.plotly_chart(fig, use_container_width=True)
+        
+        if PLOTLY_AVAILABLE:
+            fig = go.Figure(data=[go.Pie(
+                labels=['Critical', 'High', 'Medium', 'Low'],
+                values=[
+                    summary['threatOverview']['CRITICAL'],
+                    summary['threatOverview']['HIGH'],
+                    summary['threatOverview']['MEDIUM'],
+                    summary['threatOverview']['LOW']
+                ],
+                marker=dict(colors=['#dc2626', '#f59e0b', '#fbbf24', '#10b981']),
+                hole=0.4
+            )])
+            fig.update_layout(height=400)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            # Fallback bar chart
+            chart_data = pd.DataFrame({
+                'Threat Level': ['Critical', 'High', 'Medium', 'Low'],
+                'Count': [
+                    summary['threatOverview']['CRITICAL'],
+                    summary['threatOverview']['HIGH'],
+                    summary['threatOverview']['MEDIUM'],
+                    summary['threatOverview']['LOW']
+                ]
+            })
+            st.bar_chart(chart_data.set_index('Threat Level'))
         
         # Executive Summary
         st.subheader("Executive Summary")
