@@ -243,35 +243,48 @@ def fetch_fda_data(search_term: str, days_back: int = 365) -> List[Dict]:
         date_to = datetime.now().strftime('%Y%m%d')
         
         url = "https://api.fda.gov/device/510k.json"
+        
+        # Build search query
+        search_query = f'decision_date:[{date_from}+TO+{date_to}]'
+        
+        # Add search term if provided
+        if search_term:
+            # Search in device name and product code
+            search_query += f'+AND+(device_name:"{search_term}"+openfda.device_name:"{search_term}")'
+        
         params = {
-            'search': f'decision_date:[{date_from}+TO+{date_to}]',
-            'limit': 100
+            'search': search_query,
+            'limit': 50  # Reduced to ensure we get results
         }
         
-        if search_term:
-            params['search'] += f'+AND+openfda.device_name:"{search_term}"'
-        
-        response = requests.get(url, params=params, timeout=10)
+        response = requests.get(url, params=params, timeout=15)
         
         if response.status_code == 200:
             data = response.json()
             results = []
             
             for item in data.get('results', []):
+                # Format decision date properly
+                decision_date = item.get('decision_date', '')
+                if decision_date and len(decision_date) == 8:  # Format: YYYYMMDD
+                    decision_date = f"{decision_date[:4]}-{decision_date[4:6]}-{decision_date[6:]}"
+                
                 results.append({
                     'source': 'FDA 510(k)',
                     'company': item.get('applicant', 'Unknown'),
                     'deviceName': item.get('device_name', 'Unknown Device'),
                     'productCode': item.get('product_code', ''),
-                    'decisionDate': item.get('decision_date', 'N/A'),
+                    'decisionDate': decision_date or 'N/A',
                     'status': 'Approved',
                     'regulatoryClass': item.get('device_class', 'Unknown')
                 })
             
             return results
-        return []
+        else:
+            st.warning(f"FDA API returned status {response.status_code}. Using clinical trials data only.")
+            return []
     except Exception as e:
-        st.error(f"FDA API Error: {str(e)}")
+        st.warning(f"FDA API temporarily unavailable: {str(e)}. Continuing with clinical trials data.")
         return []
 
 def fetch_clinical_trials(search_term: str, days_back: int = 365) -> List[Dict]:
@@ -279,28 +292,40 @@ def fetch_clinical_trials(search_term: str, days_back: int = 365) -> List[Dict]:
     try:
         url = "https://clinicaltrials.gov/api/v2/studies"
         
-        query = "AREA[StudyType]Interventional"
+        # Build query
+        query_parts = ["AREA[StudyType]Interventional"]
+        
         if search_term:
-            query += f" AND AREA[Condition]{search_term}"
+            query_parts.append(f"AREA[Condition]{search_term}")
+        
+        query = " AND ".join(query_parts)
         
         params = {
             'query.term': query,
             'filter.overallStatus': 'RECRUITING,ACTIVE_NOT_RECRUITING,COMPLETED',
-            'pageSize': 100,
+            'pageSize': 50,
             'format': 'json'
         }
         
-        response = requests.get(url, params=params, timeout=10)
+        response = requests.get(url, params=params, timeout=15)
         
         if response.status_code == 200:
             data = response.json()
             results = []
             
-            for study in data.get('studies', []):
+            for study in data.get('studies', [])[:50]:  # Limit to first 50
                 protocol = study.get('protocolSection', {})
                 identification = protocol.get('identificationModule', {})
                 status_module = protocol.get('statusModule', {})
                 sponsor_module = protocol.get('sponsorCollaboratorsModule', {})
+                design_module = protocol.get('designModule', {})
+                
+                # Format start date
+                start_date = status_module.get('startDateStruct', {}).get('date', 'N/A')
+                
+                # Get phase
+                phases = design_module.get('phases', [])
+                phase = phases[0] if phases else 'Unknown'
                 
                 results.append({
                     'source': 'ClinicalTrials.gov',
@@ -308,14 +333,16 @@ def fetch_clinical_trials(search_term: str, days_back: int = 365) -> List[Dict]:
                     'trialTitle': identification.get('briefTitle', 'Unknown Trial'),
                     'nctId': identification.get('nctId', ''),
                     'status': status_module.get('overallStatus', 'Unknown'),
-                    'startDate': status_module.get('startDateStruct', {}).get('date', 'N/A'),
-                    'phase': protocol.get('designModule', {}).get('phases', ['Unknown'])[0] if protocol.get('designModule', {}).get('phases') else 'Unknown'
+                    'startDate': start_date,
+                    'phase': phase
                 })
             
             return results
-        return []
+        else:
+            st.warning(f"ClinicalTrials API returned status {response.status_code}")
+            return []
     except Exception as e:
-        st.error(f"ClinicalTrials API Error: {str(e)}")
+        st.warning(f"ClinicalTrials API temporarily unavailable: {str(e)}")
         return []
 
 def generate_executive_summary(analyzed_records: List[Dict]) -> Dict:
