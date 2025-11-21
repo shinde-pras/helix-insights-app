@@ -235,6 +235,89 @@ class MadisonIntelligenceAgent:
         
         return actions
 
+# Demo Data Generator
+def generate_demo_data() -> List[Dict]:
+    """Generate realistic demo data for demonstration"""
+    demo_fda = [
+        {
+            'source': 'FDA 510(k)',
+            'company': 'Alcon Laboratories',
+            'deviceName': 'AcrySof IQ Vivity Extended Vision Intraocular Lens',
+            'productCode': 'MQW',
+            'decisionDate': '2024-10-15',
+            'status': 'Approved',
+            'regulatoryClass': 'Class III'
+        },
+        {
+            'source': 'FDA 510(k)',
+            'company': 'Johnson & Johnson Vision Care',
+            'deviceName': 'ACUVUE OASYS Contact Lens with Transitions',
+            'productCode': 'MQJ',
+            'decisionDate': '2024-09-22',
+            'status': 'Approved',
+            'regulatoryClass': 'Class II'
+        },
+        {
+            'source': 'FDA 510(k)',
+            'company': 'Bausch + Lomb',
+            'deviceName': 'enVista Toric Intraocular Lens',
+            'productCode': 'MOB',
+            'decisionDate': '2024-08-30',
+            'status': 'Approved',
+            'regulatoryClass': 'Class III'
+        },
+        {
+            'source': 'FDA 510(k)',
+            'company': 'ZEISS Medical Technology',
+            'deviceName': 'ARTEVO 800 Ophthalmic Surgical Microscope',
+            'productCode': 'HQN',
+            'decisionDate': '2024-11-05',
+            'status': 'Approved',
+            'regulatoryClass': 'Class II'
+        },
+        {
+            'source': 'FDA 510(k)',
+            'company': 'CooperVision Inc',
+            'deviceName': 'MyDay Toric Contact Lens',
+            'productCode': 'MQC',
+            'decisionDate': '2024-07-18',
+            'status': 'Approved',
+            'regulatoryClass': 'Class II'
+        }
+    ]
+    
+    demo_trials = [
+        {
+            'source': 'ClinicalTrials.gov',
+            'company': 'Novartis Pharmaceuticals',
+            'trialTitle': 'Phase III Study of Aflibercept for Diabetic Retinopathy',
+            'nctId': 'NCT05234567',
+            'status': 'RECRUITING',
+            'startDate': '2024-06-01',
+            'phase': 'PHASE3'
+        },
+        {
+            'source': 'ClinicalTrials.gov',
+            'company': 'Alcon Research',
+            'trialTitle': 'Safety and Efficacy of New Presbyopia Correcting IOL',
+            'nctId': 'NCT05345678',
+            'status': 'ACTIVE_NOT_RECRUITING',
+            'startDate': '2024-03-15',
+            'phase': 'PHASE2'
+        },
+        {
+            'source': 'ClinicalTrials.gov',
+            'company': 'Regeneron Pharmaceuticals',
+            'trialTitle': 'Long-term Study of Anti-VEGF Therapy for Wet AMD',
+            'nctId': 'NCT05456789',
+            'status': 'RECRUITING',
+            'startDate': '2024-08-20',
+            'phase': 'PHASE3'
+        }
+    ]
+    
+    return demo_fda + demo_trials
+
 # Data Fetching Functions
 def fetch_fda_data(search_term: str, days_back: int = 365) -> List[Dict]:
     """Fetch FDA 510(k) data"""
@@ -427,6 +510,12 @@ def main():
             help="Quick: Top 50 results | Deep: Up to 200 results"
         )
         
+        use_demo_data = st.checkbox(
+            "Use Demo Data",
+            value=False,
+            help="Use sample data if APIs are unavailable"
+        )
+        
         st.markdown("---")
         st.markdown("### About Madison AI")
         st.info("Multi-factor threat scoring system analyzing FDA approvals, clinical trials, and competitive positioning.")
@@ -438,19 +527,25 @@ def main():
     # Run Analysis Button
     if st.button("🚀 Run Competitive Analysis", type="primary"):
         with st.spinner("Fetching competitive intelligence data..."):
-            # Fetch data
-            search_query = search_term if therapeutic_area == "All Categories" else therapeutic_area.lower()
             
-            fda_data = fetch_fda_data(search_query, days_back)
-            clinical_data = fetch_clinical_trials(search_query, days_back)
-            
-            all_records = fda_data + clinical_data
-            
-            if not all_records:
-                st.warning("No data found for the specified criteria. Try broadening your search.")
-                return
-            
-            st.success(f"✅ Retrieved {len(all_records)} records ({len(fda_data)} FDA + {len(clinical_data)} Clinical Trials)")
+            if use_demo_data:
+                # Use demo data
+                all_records = generate_demo_data()
+                st.success(f"✅ Loaded demo dataset: {len(all_records)} records")
+            else:
+                # Fetch data from APIs
+                search_query = search_term if therapeutic_area == "All Categories" else therapeutic_area.lower()
+                
+                fda_data = fetch_fda_data(search_query, days_back)
+                clinical_data = fetch_clinical_trials(search_query, days_back)
+                
+                all_records = fda_data + clinical_data
+                
+                if not all_records:
+                    st.warning("⚠️ No data found. APIs may be temporarily unavailable. Try enabling 'Use Demo Data' to see the system in action.")
+                    return
+                
+                st.success(f"✅ Retrieved {len(all_records)} records ({len(fda_data)} FDA + {len(clinical_data)} Clinical Trials)")
         
         with st.spinner("Running Madison AI threat analysis..."):
             # Analyze each record
