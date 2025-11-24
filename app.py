@@ -327,24 +327,25 @@ def fetch_fda_data(search_term: str, days_back: int = 365, api_key: str = None) 
         
         url = "https://api.fda.gov/device/510k.json"
         
-        # Simpler search query for better reliability
+        # Build simpler query - just date range, no search term
         search_query = f'decision_date:[{date_from}+TO+{date_to}]'
-        
-        # Add search term if provided (simpler format)
-        if search_term and search_term.strip():
-            search_query += f'+AND+device_name:{search_term}'
         
         params = {
             'search': search_query,
-            'limit': 25  # Reduced for better reliability
+            'limit': 10  # Start small for testing
         }
         
         # Add API key if provided
         if api_key:
             params['api_key'] = api_key
         
+        # Log the exact URL being called (for debugging)
+        import urllib.parse
+        full_url = f"{url}?{urllib.parse.urlencode(params)}"
+        st.caption(f"Testing FDA API: {full_url[:80]}...")
+        
         # Make request with longer timeout
-        response = requests.get(url, params=params, timeout=20)
+        response = requests.get(url, params=params, timeout=30)
         
         # Check response
         if response.status_code == 200:
