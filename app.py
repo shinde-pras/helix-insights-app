@@ -320,32 +320,33 @@ def generate_demo_data() -> List[Dict]:
 
 # Data Fetching Functions
 def fetch_fda_data(search_term: str, days_back: int = 365, api_key: str = None) -> List[Dict]:
-    """Fetch FDA 510(k) data"""
+    """Fetch FDA 510(k) data with improved error handling"""
     try:
         date_from = (datetime.now() - timedelta(days=days_back)).strftime('%Y%m%d')
         date_to = datetime.now().strftime('%Y%m%d')
         
         url = "https://api.fda.gov/device/510k.json"
         
-        # Build search query
+        # Simpler search query for better reliability
         search_query = f'decision_date:[{date_from}+TO+{date_to}]'
         
-        # Add search term if provided
-        if search_term:
-            # Search in device name and product code
-            search_query += f'+AND+(device_name:"{search_term}"+openfda.device_name:"{search_term}")'
+        # Add search term if provided (simpler format)
+        if search_term and search_term.strip():
+            search_query += f'+AND+device_name:{search_term}'
         
         params = {
             'search': search_query,
-            'limit': 50  # Reduced to ensure we get results
+            'limit': 25  # Reduced for better reliability
         }
         
-        # Add API key if provided (increases rate limit from 240/day to 120,000/day)
+        # Add API key if provided
         if api_key:
             params['api_key'] = api_key
         
-        response = requests.get(url, params=params, timeout=15)
+        # Make request with longer timeout
+        response = requests.get(url, params=params, timeout=20)
         
+        # Check response
         if response.status_code == 200:
             data = response.json()
             results = []
@@ -367,11 +368,22 @@ def fetch_fda_data(search_term: str, days_back: int = 365, api_key: str = None) 
                 })
             
             return results
-        else:
-            st.warning(f"FDA API returned status {response.status_code}. Using clinical trials data only. Consider adding an FDA API key for better reliability.")
+        elif response.status_code == 404:
+            # No results found for this query
             return []
+        else:
+            # API error
+            error_msg = f"FDA API status {response.status_code}"
+            if response.status_code >= 500:
+                error_msg += " (server issue - temporary)"
+            st.warning(f"{error_msg}. Using clinical trials data. {'Try demo data for full functionality.' if not api_key else 'FDA servers may be experiencing issues.'}")
+            return []
+            
+    except requests.exceptions.Timeout:
+        st.warning("FDA API timeout - their servers may be slow. Continuing with clinical trials data.")
+        return []
     except Exception as e:
-        st.warning(f"FDA API temporarily unavailable: {str(e)}. Continuing with clinical trials data.")
+        st.warning(f"FDA API unavailable: {str(e)}. Continuing with clinical trials data.")
         return []
 
 def fetch_clinical_trials(search_term: str, days_back: int = 365) -> List[Dict]:
@@ -494,7 +506,10 @@ def main():
         # Optional API Key for better rate limits
         with st.expander("🔑 API Configuration (Optional)", expanded=False):
             # Try to get API key from secrets first, then allow manual input
-            default_api_key = st.secrets.get("FDA_API_KEY", "") if hasattr(st, 'secrets') else ""
+            try:
+                default_api_key = st.secrets["FDA_API_KEY"] if "FDA_API_KEY" in st.secrets else ""
+            except:
+                default_api_key = ""
             
             fda_api_key = st.text_input(
                 "FDA API Key",
@@ -504,6 +519,7 @@ def main():
             )
             if fda_api_key:
                 st.success("✓ FDA API key configured")
+                st.caption(f"Key loaded: {fda_api_key[:10]}...")
             else:
                 st.info("💡 Add FDA API key for higher rate limits")
         
