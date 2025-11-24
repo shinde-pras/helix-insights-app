@@ -337,7 +337,7 @@ def fetch_fda_data(search_term: str, days_back: int = 365, api_key: str = None) 
         
         params = {
             'search': search_query,
-            'limit': 10
+            'limit': 50  # Increased for better coverage
         }
         
         # Add API key if provided
