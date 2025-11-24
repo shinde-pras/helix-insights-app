@@ -322,29 +322,29 @@ def generate_demo_data() -> List[Dict]:
 def fetch_fda_data(search_term: str, days_back: int = 365, api_key: str = None) -> List[Dict]:
     """Fetch FDA 510(k) data with improved error handling"""
     try:
-        date_from = (datetime.now() - timedelta(days=days_back)).strftime('%Y%m%d')
-        date_to = datetime.now().strftime('%Y%m%d')
+        # Calculate dates
+        date_to = datetime.now()
+        date_from = date_to - timedelta(days=days_back)
+        
+        # Format dates as YYYYMMDD
+        date_from_str = date_from.strftime('%Y%m%d')
+        date_to_str = date_to.strftime('%Y%m%d')
         
         url = "https://api.fda.gov/device/510k.json"
         
-        # Build simpler query - just date range, no search term
-        search_query = f'decision_date:[{date_from}+TO+{date_to}]'
+        # Build search query - let requests handle the encoding
+        search_query = f'decision_date:[{date_from_str} TO {date_to_str}]'
         
         params = {
             'search': search_query,
-            'limit': 10  # Start small for testing
+            'limit': 10
         }
         
         # Add API key if provided
-        if api_key:
-            params['api_key'] = api_key
+        if api_key and api_key.strip():
+            params['api_key'] = api_key.strip()
         
-        # Log the exact URL being called (for debugging)
-        import urllib.parse
-        full_url = f"{url}?{urllib.parse.urlencode(params)}"
-        st.caption(f"Testing FDA API: {full_url[:80]}...")
-        
-        # Make request with longer timeout
+        # Make request - requests library will properly encode the URL
         response = requests.get(url, params=params, timeout=30)
         
         # Check response
