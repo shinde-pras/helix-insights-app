@@ -11,4 +11,4 @@ jobs:
     steps:
       - name: Ping Streamlit App
         run: |
-          curl -I https://helix-insights-streamlit.app
+          curl -I https://helix-insights.streamlit.app
