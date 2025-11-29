@@ -13,7 +13,7 @@ Transform competitive intelligence from hours to seconds with AI-powered automat
 Madison AI Framework v1.3 | Built for Product Managers in MedTech
 
 ## Try It Live
-[Launch Dashboard →](https://your-app-url-here.streamlit.app)
+[Launch Dashboard →](https://helix-insights.streamlit.app/)
 
 ## About
 Created by Prasad as part of the Helix Insights portfolio project.
